@@ -85,6 +85,10 @@ async function resolveShort(url, cookie) {
   return res.url || url;
 }
 
+// 说明：originVideoKey 拼 https://sns-video-bd.xhscdn.com/{key} 即为无水印原片。
+// 注意：该 CDN 有防盗链——浏览器直接打开时若带第三方 Referer 会 403，
+// 必须让前端以 no-referrer 方式请求（见 index.html 的 meta 与 rel="noreferrer"）。
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -149,10 +153,14 @@ exports.handler = async (event) => {
 
     let videoUrl = '';
     let watermarked = false;
+
+    // 1) 优先无水印原片：originVideoKey -> sns-video-bd
     if (ovk) {
       videoUrl = `https://sns-video-bd.xhscdn.com/${ovk}`;
-    } else {
-      // 兜底：带水印的转码版（h264 优先）
+    }
+
+    // 2) 没有 originVideoKey 时，回退到带水印转码版
+    if (!videoUrl) {
       const h264 = (video.media && video.media.stream && video.media.stream.h264) || [];
       const h265 = (video.media && video.media.stream && video.media.stream.h265) || [];
       const m = (h264[0] && h264[0].masterUrl) || (h265[0] && h265[0].masterUrl) || '';
